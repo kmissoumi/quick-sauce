@@ -18,5 +18,13 @@ chmod +x ./api/devices*
 ```
 
 
+### Storage
+Skip upload if the app already exists. _Always_ return a file id.
+
+```shell
+chmod +x ./api/storage* 
+./api/storage-upload <FULLY QUALIFIED PATH TO APP>
+```
+
 
 _This source code is licensed under the MIT license found in the LICENSE file in the root directory of this source tree_
