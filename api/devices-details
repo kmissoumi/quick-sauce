@@ -1,0 +1,127 @@
+#!/bin/bash
+#
+# 2022-01-12
+# kareem@missoumi.org
+#
+# Devices by platform and vendor.
+#
+# Copyright (c) 2022, Kareem Missoumi
+# All rights reserved.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+#
+
+baseDir="data/api/devices"
+
+# use the most recently generated data (by directory name, not time -dt)
+workDir=$(ls -rd ./${baseDir}/* | head -1)
+[[ -z ${workDir} ]] && printf "\nBase configuration missing! Run './api/device' first.\n" && exit 2
+platformDir="${workDir}/platform"
+[[ -d ${platformDir} ]] && printf "\nData already available.\n" && printf "platform data file path: %s\n" ${platformDir} && exit 2
+mkdir -p ${platformDir}
+
+
+# list every iOS device with an osVersion less than argument `x` <value>
+jq --compact-output --arg x 20 '
+    sort_by(.name, .osVersion)
+    |.[]
+    |select(.os == "IOS")
+    |select(.osVersion < $x)
+    |{ name: .name, osVersion: .osVersion }' ${workDir}/deviceInfoPublic.json   \
+    | jq --null-input '[inputs]|unique' > ${platformDir}/all-iOS-devices.json   # extra pipe to unique for descriptor overlap                
+
+jq --compact-output '
+    sort_by(.osVersion, .name)
+    |.[]
+    |select(.os == "IOS")
+    |select(.name | startswith("iPhone"))
+    |{ name: .name, osVersion: .osVersion, modelNumber: .modelNumber }' ${workDir}/deviceInfoPublic.json   \
+    | jq --null-input '[inputs]|unique' > ${platformDir}/all-iPhone-devices.json   # extra pipe to unique for descriptor overlap                                        
+
+jq --compact-output '
+    sort_by(.osVersion, .name)
+    |.[]
+    |select(.os == "IOS")
+    |select(.name | startswith("iPad"))
+    |{ name: .name, osVersion: .osVersion, modelNumber: .modelNumber }' ${workDir}/deviceInfoPublic.json   \
+    | jq --null-input '[inputs]' > ${platformDir}/all-iPad-devices.json          
+
+jq --compact-output '
+    sort_by(.osVersion, .name)
+    |.[]
+    |select(.os == "IOS")
+    |select(.name | startswith("iPad")|not)
+    |select(.name | startswith("iPhone")|not)
+    |{ name: .name, osVersion: .osVersion, modelNumber: .modelNumber }' ${workDir}/deviceInfoPublic.json   \
+    | jq --null-input '[inputs]' > ${platformDir}/all-Other-iOS-devices.json          
+
+jq --compact-output '
+    sort_by(.osVersion, .name)
+    |.[]
+    |select(.os == "ANDROID")
+    |{ name: .name, osVersion: .osVersion, modelNumber: .modelNumber }' ${workDir}/deviceInfoPublic.json   \
+    | jq --null-input '[inputs]' > ${platformDir}/all-Android-devices.json          
+
+jq --compact-output '
+    sort_by(.osVersion, .name)
+    |.[]
+    |select(.os == "ANDROID")
+    |select(.name | startswith("Samsung"))
+    |{ name: .name, osVersion: .osVersion, modelNumber: .modelNumber }' ${workDir}/deviceInfoPublic.json \
+    | jq --null-input '[inputs]' > ${platformDir}/all-Samsung-devices.json          
+
+jq --compact-output '
+    sort_by(.osVersion, .name)
+    |.[]
+    |select(.os == "ANDROID")
+    |select(.name | startswith("Google"))
+    |{ name: .name, osVersion: .osVersion, modelNumber: .modelNumber }' ${workDir}/deviceInfoPublic.json \
+    | jq --null-input '[inputs]' > ${platformDir}/all-Google-devices.json     
+
+jq --compact-output '
+    sort_by(.osVersion, .name)
+    |.[]
+    |select(.os == "ANDROID")
+    |select(.name | startswith("Google")| not)
+    |select(.name | startswith("Samsung")| not)
+    |{ name: .name, osVersion: .osVersion, modelNumber: .modelNumber }' ${workDir}/deviceInfoPublic.json \
+    | jq --null-input '[inputs]' > ${platformDir}/all-Other-Android-devices.json     
+
+
+
+ jq --compact-output --arg x Amazon '
+    sort_by(.osVersion, .name)
+    |.[]
+    |select(.manufacturer | index($x))
+    |{ name: .name, osVersion: .osVersion, modelNumber: .modelNumber }' ${workDir}/deviceInfoPublic.json \
+    | jq --null-input '[inputs]' > ${platformDir}/all-Amazon-devices.json  
+
+
+iPadDeviceCount=$(jq '.[]|.name' ${platformDir}/all-iPad-devices.json|wc -l)
+iPhoneDeviceCount=$(jq '.[]|.name' ${platformDir}/all-iPhone-devices.json|wc -l)
+iOSDeviceCount=$(jq '.[]|.name' ${platformDir}/all-iOS-devices.json|wc -l)
+iOSOtherDevices=$(jq '.[]|.name' ${platformDir}/all-Other-iOS-devices.json|wc -l)
+
+
+allAndroidDevices=$(jq '.[]|.name' ${platformDir}/all-Android-devices.json|wc -l)
+googleDevices=$(jq '.[]|.name' ${platformDir}/all-Google-devices.json|wc -l)
+samsungDevices=$(jq '.[]|.name' ${platformDir}/all-Samsung-devices.json|wc -l)
+otherAndroidDevices=$(jq '.[]|.name' ${platformDir}/all-Other-Android-devices.json|wc -l)
+
+
+uniqueCountFile="${platformDir}/unique-device-to-os-release-counts.json"
+
+printf "{\"platform\": {\"iOS\": [{\"iPhone\": \"%s\"},{\"iPad\": \"%s\"},{\"iOS Other\": \"%s\"},{\"iOS Total\": \"%s\"}]," \
+    ${iPhoneDeviceCount} ${iPadDeviceCount} ${iOSOtherDevices} ${iOSDeviceCount} \
+    > ${uniqueCountFile}
+
+printf "\"Android\": [{\"Google\": \"%s\"},{\"Samsung\": \"%s\"},{\"Android Other\": \"%s\"},{\"Android Total\": \"%s\"}]}}\n" \
+    ${googleDevices} ${samsungDevices} ${otherAndroidDevices} ${allAndroidDevices} \
+    >> ${uniqueCountFile}
+
+
+jq '.' ${uniqueCountFile} > uniqueCountFile.tmp && mv uniqueCountFile.tmp ${uniqueCountFile}
+
+
+printf "\nplatform data file path: %s\n" ${platformDir}
