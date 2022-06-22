@@ -1,0 +1,23 @@
+# source me!
+
+function saucejson2log () {
+  timeStamp=$(date +"%Y-%m-%d_%H%M%S_%s")
+  inputFile=${1} && f="${inputFile%.*}" && outputFile="${f}.log"
+
+  # check parameter and file
+  # https://www.gnu.org/software/bash/manual/html_node/Bash-Conditional-Expressions.html
+  [[ -z ${inputFile} ]] && printf "Expecting filename as 1st parameter...\n" && return 1
+  [[ ! -s ${inputFile} ]] && printf "Missing or empty input file...\n" && return 1
+
+  # keep track of input file and do not overwrite existing files
+  [[ -f ${outputFile} ]] && mv ${outputFile} ${outputFile}.${timeStamp}
+  [[ ${inputFile} == ${outputFile} ]] && inputFile="${outputFile}.${timeStamp}"
+
+  # process json to log
+  jq --raw-output '.[]|
+    "\(.time) \(.level|sub("DEBUG"; "D")|sub("ERROR"; "E")|sub("INFO"; "I")|sub("VERBOSE"; "V")|sub("WARN"; "W")) \(.message)"' \
+    ${inputFile} > ${outputFile}
+
+  # check status and return message
+  rc=$? && [[ ${rc} != 0 ]] && printf "Failed to parse JSON. RC=%s\n" ${rc} || printf "Log file \"%s\" created successfully.\n" ${outputFile}
+}
