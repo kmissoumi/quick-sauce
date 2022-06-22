@@ -15,13 +15,15 @@
 
 # avoid duplicate uploads
 printf "\n"
-[[ -z ${1} ]] && printf "Provide the fully qualified path to the app as the 1st parameter.\n" && exit 2 || appFile=${1}
+# check for environment variable if parameter is not provided
+[[ -z ${1} ]] || appFile=${1}
+[[ ! -f ${appFile} ]] && printf "Provide the fully qualified path to an app as the 1st parameter.\n" && exit 2
 [[ -z ${2} ]] && appName=${appFile##*/} || appName=${2}
 
 appCheckSum=$(shasum -a 256 ${appFile} |cut -c 1-65)
 timeStamp=$(date +"%Y-%m-%d_%H%M%S_%s")
-scriptPath="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-quickSauceHome=$( echo "${scriptPath%/*}" )
+scriptPath="$(cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)"
+quickSauceHome=$(echo "${scriptPath%/*}")
 baseDir="${quickSauceHome}/data/api/storage/${timeStamp}"
 
 [[ -z ${SAUCE_DC} ]] && SAUCE_DC="us-west-1"
@@ -35,7 +37,8 @@ r=$(curl --silent --user ${userAuth} \
   | jq  '.items[]|del(.metadata.icon)')
 
 mkdir -p ${baseDir}
-printf "%s" ${r} |jq > ${baseDir}/storageRespone.json
+printf "%s" ${r} |jq > ${baseDir}/storageQueryResponse.json
+
 [[ -n ${r} ]] && printf 'App found. Skipping upload.\n' && fileId=$(jq --raw-output '.id' <<< ${r}) && printf 'fileId=%s\n' ${fileId} && exit 0
 
 
@@ -51,8 +54,8 @@ r=$(curl --silent --user ${userAuth} \
 httpStatus="${r##*$'\n'}"
 r="${r%????}"
 
-printf "%s" ${r} |jq '.item|del(.metadata.icon)' > ${baseDir}/storageRespone.json
-fileId=$(jq '.id' ${baseDir}/storageRespone.json)
+printf "%s" ${r} |jq '.item|del(.metadata.icon)' > ${baseDir}/storageUploadResponse.json
+fileId=$(jq '.id' ${baseDir}/storageUploadResponse.json)
 
 printf 'task complete.\nstatus=%s\nresponse output path: %s\n' ${httpStatus} ${baseDir}
 printf 'fileId=%s\n' ${fileId}

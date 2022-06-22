@@ -10,11 +10,12 @@ An SE Story & Toolkit.
 Devices with availability. e.g. Which of my private devices are available? 
 
 ```shell
+# get lists of devices and availability
 chmod +x ./api/devices* 
 ./api/devices
 
 # sort, group, and count for even more information
-./api/devices-extra
+./api/devices-plus
 ```
 
 
